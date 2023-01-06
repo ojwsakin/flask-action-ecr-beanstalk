@@ -24,6 +24,13 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
+      - name: Create .env file
+        id: env
+        uses: ozaytsev86/create-env-file@v1
+        with:
+          ENV_AWS_ACCESS_KEY_ID: ${{ secrets.DB_AWS_ACCESS_KEY_ID }}
+          ENV_AWS_SECRET_KEY: ${{ secrets.DB_AWS_SECRET_KEY }}
+
       - name: Set short git commit SHA
         id: vars
         run: |
@@ -63,6 +70,13 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
+      - name: Generate deployment package 
+        run: | 
+          mkdir -p deploy
+          cp -r .env deploy/.env
+          cp docker-compose.yaml deploy/docker-compose.yaml
+          cd deploy && zip -r deploy.zip .
+
       - name: Beanstalk Deploy
         uses: einaregilsson/beanstalk-deploy@v20
         with:
@@ -72,5 +86,5 @@ jobs:
           environment_name: ${{secrets.EB_ENV_NAME}}
           version_label: ${{secrets.EB_ENV_NAME}}-${{steps.current-time.outputs.formattedTime}}
           region: ap-northeast-2
-          deployment_package: docker-compose.yaml
+          deployment_package: deploy/deploy.zip
           wait_for_environment_recovery: 200
